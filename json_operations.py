@@ -1,7 +1,7 @@
 import json
 
 # Lugar en el que se carga la configuración del bot
-file_path = 'configuracion.json'
+file_path = 'data.json'
 
 # 
 def load_json() -> dict:

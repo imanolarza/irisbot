@@ -20,6 +20,10 @@ intents.members = True
 
 bot = commands.Bot(intents=intents, command_prefix='!')
 
+#Colores
+error_color = 0xda661b
+success_color = 0x2F3136
+
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
 # TODO: Volverlo a implementar
 temas = app_commands.Group(name='temas', description='Tema diario')
@@ -42,20 +46,28 @@ async def on_ready():
 
     print(f'Loggeado como {bot.user}')
 
+# Funciones
+
+# def gen_embed(des, color):
+#     res = discord.Embed(description=des, color=int(color))
+
+#     res.add_field(name='Frase del día', value='> %s\n**%s**(%s)' % (quote, quote_author, quote_source), inline=False)
+#     res.set_footer(text="¡Recuerda seguir normas de convivencia e invitar a tus amigos!")
+#     res.set_image(url=image_url)
+
+#     return res
+
 # Definición de comandos
 # Puntos
+
+# Comando agregar puntos a usuario staff
 @puntos.command(name='agregar')
 @app_commands.describe(miembro='Miembro a ceder puntaje')
 @app_commands.describe(cantidad='Cantidad de puntos')
 async def agregar(interaction: discord.Interaction, miembro: discord.Member, cantidad:int):
-    embed = discord.Embed(
-        title=f"Staff {miembro} ha recibido",
-        color=0x2F3136
-    )
-    embed.set_author(
-        name="Punto staff",
-        icon_url=miembro.avatar.url
-    )
+    # Crear embed
+    embed = discord.Embed(title=f"Staff {miembro} ha recibido", color=0x2F3136)
+    embed.set_author(name="Punto staff", icon_url=miembro.avatar.url)
     embed.add_field(name='Punto dado por:', value=interaction.user.name)
     embed.add_field(name='Puntos:', value=cantidad)
 
@@ -65,6 +77,65 @@ async def agregar(interaction: discord.Interaction, miembro: discord.Member, can
     )
 
     await interaction.response.send_message(embed=embed)
+
+# Comando reclamar puntaje
+# Pone el reclamo del ejecutador del comando en movimientos pendientes(json)
+@puntos.command(name='reclamar')
+# Lista desplegable de acciones
+# TODO Comando para agregar acciones
+@app_commands.describe(accion='acción por reclamar puntaje')
+@app_commands.choices(accion=[
+    app_commands.Choice(name='Bienvenida', value='Bienvenida 1p'),
+    app_commands.Choice(name='Bump', value='Bump 1p'),
+    app_commands.Choice(name='Interacción con posts', value='Interacción con posts 2p')
+])
+@app_commands.describe(evidencia='Link del mensaje evidencia')
+async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str):
+    # Cargar json de usuarios
+    usuarios = load_json()['usuarios']
+
+    # Cargar en esta variable los anteriores movimientos
+    old_movimientos_pendientes = load_json()['movimientos_pendientes']
+
+    # Buscar en el json el usuario que ejecutó el comando
+    usuario = list(filter(lambda u: u['id'] == interaction.user.id, usuarios))
+
+    # Si el usuario se encuentra en el json, sumar el reclamo a movimientos pendientes
+    if len(usuario):
+        # Carga de nueva información
+        new_movimientos_pendientes = old_movimientos_pendientes.copy()
+        new_movimientos_pendientes.append(accion)
+
+        # Actualizar columna del json con la nueva inforación
+        update_json('movimientos_pendientes', new_movimientos_pendientes)
+
+        # Embed
+        embed = discord.Embed(title=f'Haz reclamado {accion}', colour=success_color)
+        embed.add_field(name='Puntos:', value=2)
+        embed.add_field(name='Link del mensaje:', value=evidencia)
+
+        await interaction.response.send_message(embed=embed)
+    # Si no se encontró, enviará un error de que no se encontró el usuario
+    # TODO: registrar el usuario envés de advertir que no encontró el usuario
+    else:
+        await interaction.response.send_message('usuario no encontrado')
+
+# Comando puntos pendientes
+# Enviará los movimientos pendientes a aprobar por el autorizado correspondiente
+@puntos.command(name='pendientes')
+async def pendientes(interaction: discord.Interaction):
+    # Cargar columna de movimientos pendientes del json
+    movimientos_pendientes = load_json()['movimientos_pendientes']
+
+    # Si hay movimientos, los enviará al mensaje
+    # TODO: Formatear el mensaje en un embed legible
+    if len(movimientos_pendientes):
+        await interaction.response.send_message(str(movimientos_pendientes))
+
+    # Si NO hay movimientos, enviará un mensaje indicando que no hay movimientos pendientes
+    # TODO: Formatear el mensaje en un embed legible
+    else:
+        await interaction.response.send_message('Sin movimientos pendientes')
 
 # Temas
 @temas.command(name='carlos')
