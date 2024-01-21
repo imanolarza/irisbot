@@ -18,11 +18,12 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(intents=intents, command_prefix='!')
+bot = commands.Bot(intents=intents, command_prefix='ir!')
 
 #Colores
 error_color = 0xda661b
 success_color = 0x2F3136
+info_color = 0xe07978
 
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
 # TODO: Volverlo a implementar
@@ -58,8 +59,13 @@ async def on_ready():
 #     return res
 
 # Definición de comandos
-# Puntos
+# Coamndos de bot
+@bot.tree.command(name='sync')
+async def sync(interaction: discord.Interaction):
+    synced = await bot.tree.sync()
 
+    await interaction.response.send_message(f'sincronizado(s) {len(synced)} comando(s)')
+# Puntos
 # Comando agregar puntos a usuario staff
 @puntos.command(name='agregar')
 @app_commands.describe(miembro='Miembro a ceder puntaje')
@@ -85,52 +91,73 @@ async def agregar(interaction: discord.Interaction, miembro: discord.Member, can
 # TODO Comando para agregar acciones
 @app_commands.describe(accion='acción por reclamar puntaje')
 @app_commands.choices(accion=[
-    app_commands.Choice(name='Bienvenida', value='Bienvenida 1p'),
-    app_commands.Choice(name='Bump', value='Bump 1p'),
-    app_commands.Choice(name='Interacción con posts', value='Interacción con posts 2p')
+    # Esto recorre cada acción cargada en el json y setea con choices al comando
+    # Cada opción seleccionada retorna ID de acción.
+    app_commands.Choice(name=acc['name'], value=str(acc['id'])) for acc in load_json()['acciones']
 ])
 @app_commands.describe(evidencia='Link del mensaje evidencia')
 async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str):
+    # Json a consumir
+    data = load_json()
+
     # Cargar json de usuarios
-    usuarios = load_json()['usuarios']
+    usuarios = data['usuarios']
 
     # Cargar en esta variable los anteriores movimientos
-    old_movimientos_pendientes = load_json()['movimientos_pendientes']
+    old_movimientos_pendientes = data['movimientos_pendientes']
+
+    # Buscar acción en json a partir del ID proporcionado en campo "acción"
+    accion_json = list(filter(lambda a: a['id'] == int(accion), data['acciones']))[0]
 
     # Buscar en el json el usuario que ejecutó el comando
     usuario = list(filter(lambda u: u['id'] == interaction.user.id, usuarios))
 
     # Si el usuario se encuentra en el json, sumar el reclamo a movimientos pendientes
-    if len(usuario):
-        # Carga de nueva información
-        new_movimientos_pendientes = old_movimientos_pendientes.copy()
-        new_movimientos_pendientes.append(accion)
+    if not len(usuario):
+        old_usuarios = data['usuarios'].copy()
+        new_usuarios = old_usuarios.append({'id': interaction.user.id, 'puntos': 0})
 
-        # Actualizar columna del json con la nueva inforación
-        update_json('movimientos_pendientes', new_movimientos_pendientes)
+        usuario = len(old_usuarios) + 1
 
-        # Embed
-        embed = discord.Embed(title=f'Haz reclamado {accion}', colour=success_color)
-        embed.add_field(name='Puntos:', value=2)
-        embed.add_field(name='Link del mensaje:', value=evidencia)
+        update_json('usuarios', new_usuarios)
 
-        await interaction.response.send_message(embed=embed)
-    # Si no se encontró, enviará un error de que no se encontró el usuario
-    # TODO: registrar el usuario envés de advertir que no encontró el usuario
-    else:
-        await interaction.response.send_message('usuario no encontrado')
+    # Carga de nueva información
+    new_movimientos_pendientes = old_movimientos_pendientes.copy()
+
+    # Conseguir actual id a base de cantidad de movimientos
+    new_id = len(old_movimientos_pendientes) + 1
+
+    # Actualizar columna del json con la nueva información
+    new_movimientos_pendientes.append({
+        'id': new_id,
+        'accion_id': int(accion),
+        'evidencia': evidencia,
+        'user_id': interaction.user.id
+    })
+    update_json('movimientos_pendientes', new_movimientos_pendientes)
+
+    # Embed
+    embed = discord.Embed(title='Haz reclamado **%s**' % accion_json['name'], colour=success_color)
+    embed.add_field(name='Puntos:', value=accion_json['value'])
+    embed.add_field(name='Link del mensaje:', value=evidencia)
+
+    await interaction.response.send_message(embed=embed)
 
 # Comando puntos pendientes
 # Enviará los movimientos pendientes a aprobar por el autorizado correspondiente
 @puntos.command(name='pendientes')
-async def pendientes(interaction: discord.Interaction):
+async def pendientes(interaction: discord.Interaction, usuario: discord.Member = None):
     # Cargar columna de movimientos pendientes del json
     movimientos_pendientes = load_json()['movimientos_pendientes']
-
+    if usuario:
+        await interaction.response.send_message(usuario)
     # Si hay movimientos, los enviará al mensaje
-    # TODO: Formatear el mensaje en un embed legible
+    # Embed
     if len(movimientos_pendientes):
-        await interaction.response.send_message(str(movimientos_pendientes))
+        embed = discord.Embed(title="Movimientos pendientes", color=info_color)
+        embed.description =  '\n'.join(movimiento for movimiento in movimientos_pendientes)
+        # await interaction.response.send_message(str(movimientos_pendientes))
+        await interaction.response.send_message(embed=embed)
 
     # Si NO hay movimientos, enviará un mensaje indicando que no hay movimientos pendientes
     # TODO: Formatear el mensaje en un embed legible
@@ -138,11 +165,6 @@ async def pendientes(interaction: discord.Interaction):
         await interaction.response.send_message('Sin movimientos pendientes')
 
 # Temas
-@temas.command(name='carlos')
-async def carlos(interaction: discord.Interaction):
-    # Retorna al usuario el mensaje de abajo
-    await interaction.response.send_message('it\'s fucking carlos')
-
 # TODO: Integrar de vuelta los comandos (adicionando información municiosamente a cada fragmento de código) hallados en ./main.py.old
 
 # INICIAR BOT:
