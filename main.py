@@ -22,7 +22,7 @@ bot = commands.Bot(intents=intents, command_prefix='ir!')
 
 #Colores
 error_color = 0xda661b
-success_color = 0x2F3136
+success_color = 0x5ec2bf
 info_color = 0xe07978
 
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
@@ -137,7 +137,7 @@ async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str
     update_json('movimientos_pendientes', new_movimientos_pendientes)
 
     # Embed
-    embed = discord.Embed(title='Haz reclamado **%s**' % accion_json['name'], colour=success_color)
+    embed = discord.Embed(title=':Haz reclamado **%s**' % accion_json['name'], color=success_color)
     embed.add_field(name='Puntos:', value=accion_json['value'])
     embed.add_field(name='Link del mensaje:', value=evidencia)
 
@@ -148,15 +148,23 @@ async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str
 @puntos.command(name='pendientes')
 async def pendientes(interaction: discord.Interaction, usuario: discord.Member = None):
     # Cargar columna de movimientos pendientes del json
-    movimientos_pendientes = load_json()['movimientos_pendientes']
+    data = load_json()
+    movimientos_pendientes = data['movimientos_pendientes']
+    acciones = data['acciones']
     if usuario:
         await interaction.response.send_message(usuario)
+
     # Si hay movimientos, los enviará al mensaje
     # Embed
     if len(movimientos_pendientes):
-        embed = discord.Embed(title="Movimientos pendientes", color=info_color)
-        embed.description =  '\n'.join(movimiento for movimiento in movimientos_pendientes)
-        # await interaction.response.send_message(str(movimientos_pendientes))
+        movimientos_str = ''
+        for movimiento in movimientos_pendientes:
+            accion = list(filter(lambda a: a['id'] == movimiento['accion_id'], acciones))[0]
+
+            movimientos_str += f"{movimiento['id']}. <@{movimiento['user_id']}>: [{accion['name']}]({movimiento['evidencia']}) - {accion['value']}P\n"
+
+        embed = discord.Embed(title="Movimientos pendientes", color=info_color, description=movimientos_str)
+
         await interaction.response.send_message(embed=embed)
 
     # Si NO hay movimientos, enviará un mensaje indicando que no hay movimientos pendientes
