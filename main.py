@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 # 2do bloque; librerías nativas del python
+from itertools import groupby
 import os
 
 # 3er bloque; otras librerías no nativas
@@ -49,14 +50,6 @@ async def on_ready():
 
 # Funciones
 
-# def gen_embed(des, color):
-#     res = discord.Embed(description=des, color=int(color))
-
-#     res.add_field(name='Frase del día', value='> %s\n**%s**(%s)' % (quote, quote_author, quote_source), inline=False)
-#     res.set_footer(text="¡Recuerda seguir normas de convivencia e invitar a tus amigos!")
-#     res.set_image(url=image_url)
-
-#     return res
 
 # Definición de comandos
 # Coamndos de bot
@@ -67,22 +60,48 @@ async def sync(interaction: discord.Interaction):
     await interaction.response.send_message(f'sincronizado(s) {len(synced)} comando(s)')
 # Puntos
 # Comando agregar puntos a usuario staff
+@puntos.command(name='resumen')
+async def resumen(interaction: discord.Interaction):
+    data = load_json()
+
+    usuario = list(filter(lambda u: u['id'] == interaction.user.id, data['usuarios']))
+
+    embed = discord.Embed(color=info_color, title='Resumen de puntos')
+
+    embed.add_field(name='Totales', value=f"𑁍 {usuario[0]['puntos']}")
+    embed.add_field(name='Pendientes', value=f"𑁍 {usuario[0]['puntos_pendientes']}")
+    embed.add_field(name='Semana', value=f"𑁍 {usuario[0]['puntos_semana']}/35")
+    embed.add_field(name='Strikes', value=f"0/3")
+    embed.set_author(name=interaction.user.name, icon_url=interaction.user.avatar.url)
+
+    await interaction.response.send_message(embed=embed)
+
+# Comando agregar puntos a usuario staff
 @puntos.command(name='agregar')
-@app_commands.describe(miembro='Miembro a ceder puntaje')
+@app_commands.describe(miembro='Miembro a agregar puntaje')
 @app_commands.describe(cantidad='Cantidad de puntos')
 async def agregar(interaction: discord.Interaction, miembro: discord.Member, cantidad:int):
     # Crear embed
-    embed = discord.Embed(title=f"Staff {miembro} ha recibido", color=0x2F3136)
-    embed.set_author(name="Punto staff", icon_url=miembro.avatar.url)
-    embed.add_field(name='Punto dado por:', value=interaction.user.name)
-    embed.add_field(name='Puntos:', value=cantidad)
+    data = load_json()
 
-    embed.set_footer(
-        text=f"Requested by {interaction.user.name}",
-        icon_url=interaction.user.avatar.url
-    )
+    search_user = list(filter(lambda u: u['id'] == miembro.id, data['usuarios']))
 
-    await interaction.response.send_message(embed=embed)
+    if len(search_user):
+        user = search_user[0]
+        new_user = user.copy()
+        new_users = data['usuarios'].copy()
+
+        new_user.update({'puntos': user['puntos'] + cantidad})
+        new_users[new_users.index(user)] = new_user
+        update_json('usuarios', new_users)
+
+        embed = discord.Embed(title="Puntaje modificado", color=success_color)
+
+        embed.set_author(name=miembro.name, icon_url=miembro.avatar.url)
+        embed.add_field(name='Punto dado por', value=interaction.user.name)
+        embed.add_field(name='Puntos', value=f"**{user['puntos']}** → **{new_user['puntos']}**")
+
+        await interaction.response.send_message(embed=embed)
 
 # Comando reclamar puntaje
 # Pone el reclamo del ejecutador del comando en movimientos pendientes(json)
@@ -115,11 +134,12 @@ async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str
     # Si el usuario se encuentra en el json, sumar el reclamo a movimientos pendientes
     if not len(usuario):
         old_usuarios = data['usuarios'].copy()
-        new_usuarios = old_usuarios.append({'id': interaction.user.id, 'puntos': 0})
-
-        usuario = len(old_usuarios) + 1
+        new_usuarios = old_usuarios.append({'id': interaction.user.id, 'puntos': 0, 'puntos_pendientes': 0})
+        usuarios = new_usuarios
 
         update_json('usuarios', new_usuarios)
+
+        usuario = list(filter(lambda u: u['id'] == interaction.user.id, usuarios))
 
     # Carga de nueva información
     new_movimientos_pendientes = old_movimientos_pendientes.copy()
@@ -132,12 +152,23 @@ async def reclamar(interaction: discord.Interaction, accion: str, evidencia: str
         'id': new_id,
         'accion_id': int(accion),
         'evidencia': evidencia,
-        'user_id': interaction.user.id
+        'user_id': usuario[0]['id']
     })
+
     update_json('movimientos_pendientes', new_movimientos_pendientes)
+
+    # actualizar pendientes del usuario
+    new_usuarios = usuarios.copy()
+
+    new_usuarios[new_usuarios.index(usuario[0])].update({
+        'puntos_pendientes': usuario[0]['puntos_pendientes'] + accion_json['value']
+    })
+
+    update_json('usuarios', new_usuarios)
 
     # Embed
     embed = discord.Embed(title=':Haz reclamado **%s**' % accion_json['name'], color=success_color)
+    embed.set_author(name=interaction.user.name, icon_url=interaction.user.avatar.url)
     embed.add_field(name='Puntos:', value=accion_json['value'])
     embed.add_field(name='Link del mensaje:', value=evidencia)
 
@@ -171,6 +202,35 @@ async def pendientes(interaction: discord.Interaction, usuario: discord.Member =
     # TODO: Formatear el mensaje en un embed legible
     else:
         await interaction.response.send_message('Sin movimientos pendientes')
+
+@puntos.command(name='sincronizar')
+async def sincronizar(interaction: discord.Interaction):
+    data = load_json()
+
+    movimientos_pendientes = data['movimientos_pendientes']
+    usuarios = data['usuarios']
+
+    for usuario, movimientos_pendientes in groupby(
+            sorted(movimientos_pendientes, key=lambda mp: mp['user_id']), 
+            key=lambda mp: mp['user_id']
+        ):
+        usuario_search = list(filter(lambda u: u['id'] == usuario, usuarios))
+
+        if len(usuario_search):
+            usuario = usuario_search[0]
+
+            new_usuarios = usuarios.copy()
+
+            new_usuarios[new_usuarios.index(usuario)].update({
+                'puntos': usuario['puntos'] + usuario['puntos_pendientes'], 'puntos_pendientes': 0
+            })
+
+            update_json('usuarios', new_usuarios)
+            update_json('movimientos_pendientes', [])
+
+    embed = discord.Embed(color=success_color, title='Sincronizado correctamente')
+
+    await interaction.response.send_message(embed=embed)
 
 # Temas
 # TODO: Integrar de vuelta los comandos (adicionando información municiosamente a cada fragmento de código) hallados en ./main.py.old
