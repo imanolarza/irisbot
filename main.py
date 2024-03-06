@@ -6,16 +6,17 @@ from discord.ext import commands, tasks
 
 # 2do bloque; librerías nativas del python
 from calendar import monthrange
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 from itertools import groupby
 import os
 
 # 3er bloque; otras librerías no nativas
-
+import wikiquote
 
 # 4to bloque; modulos del proyecto
 from json_operations import load_json, update_json
+from tema_semanal import temas
 
 # Inicialización del bot
 intents = discord.Intents.default()
@@ -31,7 +32,7 @@ info_color = 0xe07978
 
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
 # TODO: Volverlo a implementar
-temas = app_commands.Group(name='temas', description='Tema diario')
+
 puntos = app_commands.Group(name='puntos', description='Comandos para puntos del staff')
 
 # Evento al iniciar bot
@@ -41,6 +42,7 @@ async def on_ready():
         # Añadir a la lista de comandos la categoría de tema semanal
         bot.tree.add_command(temas)
         bot.tree.add_command(puntos)
+        bot.tree.add_command(strikes)
 
         synced = await bot.tree.sync()
 
@@ -48,6 +50,7 @@ async def on_ready():
 
         # Correr crons
         purgar_cron.start()
+        tema_diario_cron.start()
 
     except Exception as e:
         # Si hay un error, lo imprimirá
@@ -56,6 +59,68 @@ async def on_ready():
     print(f'Loggeado como {bot.user}')
 
 # CronJobs
+
+# Cron tema semanal (Recuperado)
+@tasks.loop(minutes=1)
+async def tema_diario_cron():
+    print('check tema diario')
+
+    now = datetime.now().astimezone(tz=timezone.utc)
+    enviar = False
+    data = load_json()
+    channel = bot.get_channel(data['channel_id'])
+    role_id = data['role_id']
+    execute_date = False
+
+    if data['execute_date']:
+        execute_date = datetime.fromtimestamp(data['execute_date']).astimezone(tz=timezone.utc)
+
+        if now >= execute_date:
+            enviar = True
+
+    if data['forced']:
+        update_json('forced', False)
+        enviar = True
+
+    if enviar and len(data['temas']):
+        print('sent tema semanal')
+
+        if execute_date:
+            update_json('execute_date', execute_date.replace(day=(now + timedelta(days=7)).day).timestamp())
+
+        embed = discord.Embed(
+            title='⚡ Tema de la semana',
+            description=f'## "{data["temas"][0]["name"]}"\n' +
+                f'➜ Puedes responder en <#{data["temas"][0]["channel_id"]}>'
+        )
+        embed.set_footer(text='¡Recuerda seguir normas de convivencia e invitar a tus amigos!')
+
+        try:
+            quote = wikiquote.qotd(lang='es')
+
+            embed.add_field(
+                name='Frase de la semana',
+                value=
+                    '> [' + {quote[0].replace('\n', ' ').replace('»',' ').replace('«',' ')} +
+                    f'](https://es.wikiquote.org/wiki/Portada)\n{quote[1]})'
+            )
+
+        except Exception as e:
+            print(e)
+
+        await channel.send(embed=embed, content=f'<@&{role_id}>' if role_id else None)
+
+        used_tema = data['temas'][0]
+        used_tema['id'] = len(data['used_temas']) + 1
+
+        new_used_temas = data['used_temas'].copy()
+        new_used_temas.append(used_tema)
+
+        update_json('used_temas', new_used_temas)
+        data['temas'].pop(0)
+        update_json('temas', data['temas'])
+
+# Cron de purgador
 @tasks.loop(hours=24)
 async def purgar_cron():
     print('INICIANDO: Proceso de miembros inactivos')
@@ -305,7 +370,42 @@ async def sincronizar(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-# Temas
+# Strikes
+strikes = app_commands.Group(name='strikes', description='Gestor de strikes')
+
+@strikes.command(name='lista')
+async def lista(interaction: discord.Interaction):
+    data = load_json()
+
+    usuarios = data['usuarios']
+
+    embed = discord.Embed(
+        title='Strikes',
+        description='\n'.join('- <@%s> **%s/%s**' % (u['id'], u['strikes'], u['demote_strikes']) for u in usuarios)
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+@strikes.command(name='agregar')
+@app_commands.describe(usuario='Usuario a agregar strike')
+async def agregar(interaction: discord.Interaction, usuario: discord.User):
+    data = load_json()
+
+    usuario_search = list(filter(lambda u: u['id'] == usuario.id, data['usuarios']))
+
+    if len(usuario_search):
+        usuario = usuario_search[0]
+
+        new_usuario = usuario.copy()
+        new_usuario.update({'strikes': usuario['strikes'] + 1})
+
+        new_usuarios = data['usuarios']
+        new_usuarios[data['usuarios'].index(usuario)] = new_usuario
+
+        update_json('usuarios', new_usuarios)
+
+# Tema semanal (restaurado)
+# temas = app_commands.Group(name='temas', description='Tema semanal')
 # TODO: Integrar de vuelta los comandos (adicionando información municiosamente a cada fragmento de código) hallados en ./main.py.old
 
 # INICIAR BOT:
