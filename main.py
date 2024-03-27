@@ -8,10 +8,10 @@ from discord.ext import commands, tasks
 from calendar import monthrange
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+import logging
 import os
 
 # 3er bloque; otras librerías no nativas
-import wikiquote
 
 # 4to bloque; modulos del proyecto
 from json_operations import load_json
@@ -26,6 +26,8 @@ intents.members = True
 
 bot = commands.Bot(intents=intents, command_prefix='ir!')
 
+logger  = logging.getLogger('discord')
+
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
 # TODO: Volverlo a implementar
 
@@ -39,7 +41,7 @@ async def setup_hook():
 
 @tasks.loop(hours=24)
 async def purgar_cron():
-    print('INICIANDO: Proceso de miembros inactivos')
+    logger.info('INICIANDO: Proceso de miembros inactivos')
     guild_id = await bot.fetch_guild(1146162590163140668)
     members = guild_id.fetch_members(limit=None)
     now = datetime.now().astimezone(tz=timezone.utc)
@@ -73,20 +75,54 @@ async def purgar_cron():
     update_json('not_found_members', not_found_members)
     update_json('last_inactive_members', datetime.now().astimezone(tz=timezone.utc).timestamp())
 
-    print('FINALIZADO: Proceso de miembros inactivos')
+    logger.info('FINALIZADO: Proceso de miembros inactivos')
+
+@tasks.loop(minutes=1)
+async def bump_cron():
+    logger.info('Chequeo de bump')
+    data = load_json()
+    now = datetime.now()
+
+    if data['next_bump']:
+        logger.info('Aviso de bump encontrado!')
+        next_bump = datetime.fromtimestamp(data['next_bump'])
+
+        if next_bump < now:
+            update_json('next_bump', 0)
+
+            await bot.get_channel(1196930728785621123).send('Hora de hacer bump!!')
+
+            logger.info('Enviado aviso de bump')
 
 @bot.event
 async def on_ready():
     synced = await bot.tree.sync()
 
-    print(f'sincronizado(s) {len(synced)} comando(s)')
+    logger.info(f'sincronizado(s) {len(synced)} comando(s)')
     try:
+        bump_cron.start()
         purgar_cron.start()
     except Exception as e:
         # Si hay un error, lo imprimirá
-        print(e)
+        logger.error(e)
 
-    print(f'Loggeado como {bot.user}')
+    logger.info(f'Loggeado como {bot.user}')
+
+@bot.event
+async def on_message(msg):
+    if msg.type == discord.MessageType.chat_input_command and msg.author.id == 302050872383242240:
+        if len(msg.embeds):
+            embed = msg.embeds[0]
+
+            if embed.description.find('Bump done!') != -1:
+                next_bump = int((datetime.now() + relativedelta(hours=2)).timestamp())
+
+                update_json('next_bump', next_bump)
+
+                embed = discord.Embed(title="Avisador de bumps reiniciado!", color=success_color)
+                embed.add_field(name='Próxima ejecución', value='<t:%s:t>' % next_bump)
+
+                await msg.channel.send(embed=embed)
 
 # Definición de comandos
 # Coamndos de bot
@@ -125,14 +161,7 @@ async def miembros(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-# Tema semanal (restaurado)
-# temas = app_commands.Group(name='temas', description='Tema semanal')
-# TODO: Integrar de vuelta los comandos (adicionando información municiosamente a cada fragmento de código) hallados en ./main.py.old
-
 # INICIAR BOT:
 my_secret = os.environ['TOKEN']
-
-# Inicia el servidor. Solamente disponible para REPLIT
-# keep_alive()
 
 bot.run(my_secret)

@@ -6,6 +6,7 @@ from discord.ext import commands, tasks
 
 # 2do bloque; librerías nativas del python
 from datetime import datetime, timedelta, timezone
+import logging
 
 # 3er bloque; otras librerías no nativas
 import wikiquote
@@ -13,6 +14,7 @@ import wikiquote
 # 4to bloque; modulos del proyecto
 from json_operations import load_json, update_json
 
+logger  = logging.getLogger('discord')
 
 class TemasCog(commands.Cog):
     def __init__(self, client: commands.Bot):
@@ -21,7 +23,7 @@ class TemasCog(commands.Cog):
     # Cron tema semanal (Recuperado)
     @tasks.loop(minutes=1)
     async def tema_diario_cron(self):
-        print('check tema diario')
+        logger.info('Chequeo de tema semanal')
 
         now = datetime.now().astimezone(tz=timezone.utc)
         enviar = False
@@ -41,7 +43,7 @@ class TemasCog(commands.Cog):
             enviar = True
 
         if enviar and len(data['temas']):
-            print('sent tema semanal')
+            logger.info('sent tema semanal')
 
             if execute_date:
                 update_json('execute_date', execute_date.replace(day=(now + timedelta(days=7)).day).timestamp())
@@ -64,7 +66,7 @@ class TemasCog(commands.Cog):
                 )
 
             except Exception as e:
-                print(e)
+                logger.error(e)
 
             await channel.send(embed=embed, content=f'<@&{role_id}>' if role_id else None)
 
@@ -124,7 +126,7 @@ class TemasCog(commands.Cog):
                 res = datetime.now().astimezone(tz=timezone.utc).replace(
                     hour=new_hour, minute=new_minute, second=0, microsecond=0
                 )
-                print(res)
+                logger.info(res)
 
                 if now.time() > res.time():
                     res = res + timedelta(days=7)
