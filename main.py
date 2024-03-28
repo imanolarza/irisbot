@@ -90,7 +90,11 @@ async def bump_cron():
         if next_bump < now:
             update_json('next_bump', 0)
 
-            await bot.get_channel(1196930728785621123).send('Hora de hacer bump!!')
+            embed = discord.Embed(
+                title='Hora de hacer bump!', color=info_color, description='</bump:947088344167366698>'
+            )
+
+            await bot.get_channel(1146178546771955803).send(embed=embed, content='@everyone')
 
             logger.info('Enviado aviso de bump')
 
@@ -110,7 +114,11 @@ async def on_ready():
 
 @bot.event
 async def on_message(msg):
-    if msg.type == discord.MessageType.chat_input_command and msg.author.id == 302050872383242240:
+    if (
+        msg.type == discord.MessageType.chat_input_command and
+        msg.author.id == 302050872383242240 and
+        msg.channel.id == 1146178546771955803
+    ):
         if len(msg.embeds):
             embed = msg.embeds[0]
 
@@ -120,7 +128,7 @@ async def on_message(msg):
                 update_json('next_bump', next_bump)
 
                 embed = discord.Embed(title="Avisador de bumps reiniciado!", color=success_color)
-                embed.add_field(name='Próxima ejecución', value='<t:%s:t>' % next_bump)
+                embed.add_field(name='Próximo aviso', value='<t:%s:t>' % next_bump)
 
                 await msg.channel.send(embed=embed)
 
