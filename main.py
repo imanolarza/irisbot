@@ -130,7 +130,8 @@ async def on_message(msg):
             if embed.description.find('Bump done!') != -1:
                 next_bump = int((datetime.now() + relativedelta(hours=2)).timestamp())
 
-                bump_cron.start()
+                if not bump_cron.is_running():
+                    bump_cron.start()
 
                 update_json('next_bump', next_bump)
 
@@ -190,7 +191,10 @@ async def reiniciar_bump(interaction: discord.Interaction):
         update_json('next_bump', int((datetime.now() + relativedelta(hours=2)).timestamp()))
         embed.color = success_color
         embed.title = 'Avisador de bumps reiniciado!'
-        embed.add_field(name='Próximo aviso', value='<t:%s:t>' % next_bump)
+        embed.add_field(
+            name='Próximo aviso', value='<t:%s:t>' % int((datetime.now() + relativedelta(hours=2)).timestamp())
+        )
+        bump_cron.restart()
 
     await interaction.response.send_message(embed=embed, ephemeral=bool(next_bump))
 
