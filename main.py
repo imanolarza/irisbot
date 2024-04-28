@@ -98,6 +98,11 @@ async def bump_cron():
 
             logger.info('Enviado aviso de bump')
 
+    elif not data['next_bump']:
+        logger.info('Aviso de bump no encontrado, apagando')
+
+        bump_cron.stop()
+
 @bot.event
 async def on_ready():
     synced = await bot.tree.sync()
@@ -124,6 +129,8 @@ async def on_message(msg):
 
             if embed.description.find('Bump done!') != -1:
                 next_bump = int((datetime.now() + relativedelta(hours=2)).timestamp())
+
+                bump_cron.start()
 
                 update_json('next_bump', next_bump)
 
@@ -168,6 +175,24 @@ async def miembros(interaction: discord.Interaction):
     )
 
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name='reiniciar_bump')
+async def reiniciar_bump(interaction: discord.Interaction):
+    data = load_json()
+    next_bump = data['next_bump']
+
+    embed = discord.Embed()
+
+    if next_bump:
+        embed.color = error_color
+        embed.title = 'No es posible reiniciar manualmente, el próximo bump es <t:%s:R>' % next_bump
+    elif not next_bump:
+        update_json('next_bump', int((datetime.now() + relativedelta(hours=2)).timestamp()))
+        embed.color = success_color
+        embed.title = 'Avisador de bumps reiniciado!'
+        embed.add_field(name='Próximo aviso', value='<t:%s:t>' % next_bump)
+
+    await interaction.response.send_message(embed=embed, ephemeral=bool(next_bump))
 
 # INICIAR BOT:
 my_secret = os.environ['TOKEN']
