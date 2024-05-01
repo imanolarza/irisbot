@@ -21,22 +21,35 @@ class PuntosCog(commands.Cog):
     puntos = app_commands.Group(name='puntos', description='Sistema de puntajes')
 
     # Comandos Puntos
-    # Comando agregar puntos a usuario staff
+    # Comando resumen de puntos de usuario
     @puntos.command(name='resumen')
-    async def resumen(self, interaction: discord.Interaction):
+    @app_commands.describe(usuario='Filtrar por usuario')
+    async def resumen(self, interaction: discord.Interaction, usuario: discord.Member=None):
         data = load_json()
 
-        usuario = list(filter(lambda u: u['id'] == interaction.user.id, data['usuarios']))
+        usuarios_filter = tuple(
+            filter(lambda u: u['id'] == usuario.id if usuario else interaction.user.id, data['usuarios'])
+        )
 
-        embed = discord.Embed(color=info_color, title='Resumen de puntos')
+        if len(usuarios_filter):
+            select_usuario = usuarios_filter[0]
 
-        embed.add_field(name='Totales', value=f"𑁍 {usuario[0]['puntos']}")
-        embed.add_field(name='Pendientes', value=f"𑁍 {usuario[0]['puntos_pendientes']}")
-        embed.add_field(name='Semana', value=f"𑁍 {usuario[0]['puntos_semana']}/35")
-        embed.add_field(name='Strikes', value=f"0/3")
-        embed.set_author(name=interaction.user.name, icon_url=interaction.user.avatar.url)
+            embed = discord.Embed(color=info_color, title='Resumen de puntos')
 
-        await interaction.response.send_message(embed=embed)
+            embed.add_field(name='Totales', value=f"𑁍 {select_usuario['puntos']}")
+            embed.add_field(name='Pendientes', value=f"𑁍 {select_usuario['puntos_pendientes']}")
+            embed.add_field(name='Semana', value=f"𑁍 {select_usuario['puntos_semana']}/35")
+            embed.add_field(name='Strikes', value=f"0/3")
+            embed.set_author(
+                name=usuario.name if usuario else interaction.user.name,
+                icon_url=usuario.avatar.url if usuario else interaction.user.avatar.url
+            )
+
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message(
+                'usuario "%s" no encontrado en la base de datos' % usuario.name if usuario else interaction.user.name
+            )
 
     # Comando agregar puntos a usuario staff
     @puntos.command(name='agregar')
@@ -144,8 +157,9 @@ class PuntosCog(commands.Cog):
         data = load_json()
         movimientos_pendientes = data['movimientos_pendientes']
         acciones = data['acciones']
+
         if usuario:
-            await interaction.response.send_message(usuario)
+            movimientos_pendientes = list(filter(lambda a: a['user_id'] == usuario.id, movimientos_pendientes))
 
         # Si hay movimientos, los enviará al mensaje
         # Embed

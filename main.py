@@ -47,9 +47,13 @@ async def purgar_cron():
     now = datetime.now().astimezone(tz=timezone.utc)
     start_date = now - relativedelta(months=2, day=1)
     end_date = now - relativedelta(months=2)
-    end_date.replace(day=monthrange(end_date.year, end_date.month)[1])
+    end_date = end_date.replace(day=monthrange(end_date.year, end_date.month)[1])
     end_date_history = now - relativedelta(months=1)
-    end_date_history.replace(day=monthrange(end_date_history.year, end_date_history.month)[1])
+    end_date_history = end_date_history.replace(day=monthrange(end_date_history.year, end_date_history.month)[1])
+
+    logger.info('Miembros desde y mensajes desde: %s Hasta miembros: %s Hasta mensajes:%s' % (
+        start_date.strftime('%d/%m/%Y'), end_date.strftime('%d/%m/%Y'), end_date_history.strftime('%d/%m/%Y')
+    ))
 
     new_members = {}
     async for member in members:
@@ -79,29 +83,33 @@ async def purgar_cron():
 
 @tasks.loop(minutes=1)
 async def bump_cron():
-    logger.info('Chequeo de bump')
-    data = load_json()
-    now = datetime.now()
+    try:
+        logger.info('Chequeo de bump')
+        data = load_json()
+        now = datetime.now()
 
-    if data['next_bump']:
-        logger.info('Aviso de bump encontrado!')
-        next_bump = datetime.fromtimestamp(data['next_bump'])
+        if data['next_bump']:
+            logger.info('Aviso de bump encontrado!')
+            next_bump = datetime.fromtimestamp(data['next_bump'])
 
-        if next_bump < now:
-            update_json('next_bump', 0)
+            if next_bump < now:
+                update_json('next_bump', 0)
 
-            embed = discord.Embed(
-                title='Hora de hacer bump!', color=info_color, description='</bump:947088344167366698>'
-            )
+                embed = discord.Embed(
+                    title='Hora de hacer bump!', color=info_color, description='</bump:947088344167366698>'
+                )
 
-            await bot.get_channel(1146178546771955803).send(embed=embed, content='@everyone')
+                await bot.get_channel(1196930728785621123).send(embed=embed, content='@everyone')
 
-            logger.info('Enviado aviso de bump')
+                logger.info('Enviado aviso de bump')
 
-    elif not data['next_bump']:
-        logger.info('Aviso de bump no encontrado, apagando')
+        elif not data['next_bump']:
+            logger.info('Aviso de bump no encontrado, apagando')
 
-        bump_cron.stop()
+            bump_cron.stop()
+    except Exception as e:
+        bump_cron.restart()
+        logger.error(e)
 
 @bot.event
 async def on_ready():
@@ -194,7 +202,9 @@ async def reiniciar_bump(interaction: discord.Interaction):
         embed.add_field(
             name='Próximo aviso', value='<t:%s:t>' % int((datetime.now() + relativedelta(hours=2)).timestamp())
         )
-        bump_cron.restart()
+
+        if not bump_cron.is_running():
+            bump_cron.start()
 
     await interaction.response.send_message(embed=embed, ephemeral=bool(next_bump))
 
