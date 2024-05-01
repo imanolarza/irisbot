@@ -99,7 +99,7 @@ async def bump_cron():
                     title='Hora de hacer bump!', color=info_color, description='</bump:947088344167366698>'
                 )
 
-                await bot.get_channel(1196930728785621123).send(embed=embed, content='@everyone')
+                await bot.get_channel(1146178546771955803).send(embed=embed, content='@everyone')
 
                 logger.info('Enviado aviso de bump')
 
