@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 # 2do bloque; librerías nativas del python
+import logging
 
 # 3er bloque; otras librerías no nativas
 from itertools import groupby
@@ -13,6 +14,7 @@ from itertools import groupby
 from config import success_color, info_color, error_color
 from json_operations import load_json, update_json
 
+logger  = logging.getLogger('discord')
 
 class PuntosCog(commands.Cog):
     def __init__(self, client: commands.Bot):
@@ -39,7 +41,6 @@ class PuntosCog(commands.Cog):
             embed.add_field(name='Totales', value=f"𑁍 {select_usuario['puntos']}")
             embed.add_field(name='Pendientes', value=f"𑁍 {select_usuario['puntos_pendientes']}")
             embed.add_field(name='Semana', value=f"𑁍 {select_usuario['puntos_semana']}/35")
-            embed.add_field(name='Strikes', value=f"0/3")
             embed.set_author(
                 name=usuario.name if usuario else interaction.user.name,
                 icon_url=usuario.avatar.url if usuario else interaction.user.avatar.url
@@ -66,7 +67,7 @@ class PuntosCog(commands.Cog):
             new_user = user.copy()
             new_users = data['usuarios'].copy()
 
-            new_user.update({'puntos': user['puntos'] + cantidad})
+            new_user.update({'puntos_semana': user['puntos_semana'] + cantidad})
             new_users[new_users.index(user)] = new_user
             update_json('usuarios', new_users)
 
@@ -74,7 +75,7 @@ class PuntosCog(commands.Cog):
 
             embed.set_author(name=miembro.name, icon_url=miembro.avatar.url)
             embed.add_field(name='Punto dado por', value=interaction.user.name)
-            embed.add_field(name='Puntos', value=f"**{user['puntos']}** → **{new_user['puntos']}**")
+            embed.add_field(name='Puntos', value=f"**{user['puntos_semana']}** → **{new_user['puntos_semana']}**")
 
             await interaction.response.send_message(embed=embed)
 
@@ -198,7 +199,7 @@ class PuntosCog(commands.Cog):
                 new_usuarios = usuarios.copy()
 
                 new_usuarios[new_usuarios.index(usuario)].update({
-                    'puntos': usuario['puntos'] + usuario['puntos_pendientes'], 'puntos_pendientes': 0
+                    'puntos_semana': usuario['puntos_semana'] + usuario['puntos_pendientes'], 'puntos_pendientes': 0
                 })
 
                 update_json('usuarios', new_usuarios)
@@ -208,5 +209,38 @@ class PuntosCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-async def setup(client: commands.Bot) -> None:
+    @puntos.command(name='finalizar_semana')
+    @app_commands.describe(seguro='¿Está seguro de que desea finalizar la semana?')
+    @app_commands.choices(seguro=[
+        app_commands.Choice(name='No', value=0),
+        app_commands.Choice(name='Sí', value=1)
+    ])
+    async def finalizar_semana(self, interaction: discord.Interaction, seguro: int):
+        if seguro:
+            data = load_json().copy()
+
+            usuarios = data['usuarios']
+
+            for usuario in usuarios:
+                if usuario['puntos_semana'] < 35:
+                    usuario.update({'puntos_semana': 0, 'strikes': usuario['strikes'] + 1})
+                elif usuario['puntos_semana'] >= 35:
+                    usuario.update({
+                        'puntos': usuario['puntos'] + 35,
+                        'puntos_semana': usuario['puntos_semana'] - 35
+                    })
+
+            update_json('usuarios', usuarios)
+
+            embed = discord.Embed(
+                color=success_color,
+                title='Semana finalizada!',
+                description='Usa el comando </puntos resumen:1218012813134659634> para control de tus puntos!'
+            )
+
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message('Operación cancelada', ephemeral=True)
+
+async def setup(client: commands.Bot) -> None:  
     await client.add_cog(PuntosCog(client))
