@@ -16,7 +16,7 @@ import os
 # 4to bloque; modulos del proyecto
 from json_operations import load_json
 # from cogs import temas, puntos, strikes
-from config import info_color, error_color, success_color
+from config import info_color, error_color, success_color, key
 from json_operations import load_json, update_json
 
 # Inicialización del bot
@@ -209,6 +209,4 @@ async def reiniciar_bump(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=bool(next_bump))
 
 # INICIAR BOT:
-my_secret = os.environ['TOKEN']
-
-bot.run(my_secret)
+bot.run(key)

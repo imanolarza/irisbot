@@ -21,7 +21,7 @@ class TemasCog(commands.Cog):
         self.client = client
 
     # Cron tema semanal (Recuperado)
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=5)
     async def tema_diario_cron(self):
         logger.info('Chequeo de tema semanal')
 
