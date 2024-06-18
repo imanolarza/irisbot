@@ -22,6 +22,24 @@ class PuntosCog(commands.Cog):
 
     puntos = app_commands.Group(name='puntos', description='Sistema de puntajes')
 
+    # Funciones
+    async def agregar_puntaje(self, data: dict, miembro_id: int, cantidad: int) -> dict | None:
+        search_user = list(filter(lambda u: u['id'] == miembro_id, data['usuarios']))
+
+        if len(search_user):
+            user = search_user[0]
+            new_user = user.copy()
+            new_users = data['usuarios'].copy()
+
+            new_user.update({'puntos_semana': user['puntos_semana'] + cantidad})
+            new_users[new_users.index(user)] = new_user
+
+            update_json('usuarios', new_users)
+
+            return new_user
+        else:
+            return None
+
     # Comandos Puntos
     # Comando resumen de puntos de usuario
     @puntos.command(name='resumen')
@@ -57,25 +75,20 @@ class PuntosCog(commands.Cog):
     @app_commands.describe(miembro='Miembro a agregar puntaje')
     @app_commands.describe(cantidad='Cantidad de puntos')
     async def agregar(self, interaction: discord.Interaction, miembro: discord.Member, cantidad:int):
-        # Crear embed
         data = load_json()
 
-        search_user = list(filter(lambda u: u['id'] == miembro.id, data['usuarios']))
+        agregar_puntaje = await self.agregar_puntaje(data, miembro.id, cantidad)
 
-        if len(search_user):
-            user = search_user[0]
-            new_user = user.copy()
-            new_users = data['usuarios'].copy()
-
-            new_user.update({'puntos_semana': user['puntos_semana'] + cantidad})
-            new_users[new_users.index(user)] = new_user
-            update_json('usuarios', new_users)
-
+        # Crear embed
+        if agregar_puntaje:
             embed = discord.Embed(title="Puntaje modificado", color=success_color)
 
             embed.set_author(name=miembro.name, icon_url=miembro.avatar.url)
             embed.add_field(name='Punto dado por', value=interaction.user.name)
-            embed.add_field(name='Puntos', value=f"**{user['puntos_semana']}** → **{new_user['puntos_semana']}**")
+
+            old_usuario = list(filter(lambda u: u['id'] == miembro.id, data['usuarios']))[0]
+
+            embed.add_field(name='Puntos', value=f"**{old_usuario['puntos_semana']}** → **{agregar_puntaje['puntos_semana']}**")
 
             await interaction.response.send_message(embed=embed)
 

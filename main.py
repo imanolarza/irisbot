@@ -16,7 +16,7 @@ import os
 # 4to bloque; modulos del proyecto
 from json_operations import load_json
 # from cogs import temas, puntos, strikes
-from config import info_color, error_color, success_color, key
+from config import info_color, error_color, success_color, bump_channel_id, bump_role_ids, bump_author_id, bump_keyword, key
 from json_operations import load_json, update_json
 
 # Inicialización del bot
@@ -26,7 +26,7 @@ intents.members = True
 
 bot = commands.Bot(intents=intents, command_prefix='ir!')
 
-logger  = logging.getLogger('discord')
+logger = logging.getLogger('discord')
 
 # Definición de categoría de tema semanal. Demomento solo funciona un comando para testear
 # TODO: Volverlo a implementar
@@ -99,7 +99,9 @@ async def bump_cron():
                     title='Hora de hacer bump!', color=info_color, description='</bump:947088344167366698>'
                 )
 
-                await bot.get_channel(1146178546771955803).send(embed=embed, content='@everyone')
+                await bot.get_channel(bump_channel_id).send(
+                    embed=embed, content=', '.join(['<@&%s>' % str(role_id) for role_id in bump_role_ids])
+                )
 
                 logger.info('Enviado aviso de bump')
 
@@ -129,27 +131,45 @@ async def on_ready():
 async def on_message(msg):
     if (
         msg.type == discord.MessageType.chat_input_command and
-        msg.author.id == 302050872383242240 and
-        msg.channel.id == 1146178546771955803
+        msg.author.id == bump_author_id and
+        msg.channel.id == bump_channel_id
     ):
         if len(msg.embeds):
             embed = msg.embeds[0]
 
-            if embed.description.find('Bump done!') != -1:
+            if embed.description.find(bump_keyword) != -1:
                 next_bump = int((datetime.now() + relativedelta(hours=2)).timestamp())
 
                 if not bump_cron.is_running():
                     bump_cron.start()
 
                 update_json('next_bump', next_bump)
+                data = load_json()
 
                 embed = discord.Embed(title="Avisador de bumps reiniciado!", color=success_color)
                 embed.add_field(name='Próximo aviso', value='<t:%s:t>' % next_bump)
+
+                interaction_user = msg.interaction.user
+
+                agregar_puntaje = await bot.get_cog('PuntosCog').agregar_puntaje(data, interaction_user.id, 1)
+
+                if agregar_puntaje:
+                    old_user = list(filter(lambda u: u['id'] == interaction_user.id, data['usuarios']))[0]
+
+                    embed.set_author(name=interaction_user.name, icon_url=interaction_user.avatar.url)
+                    embed.add_field(
+                        name='Puntaje modificado',
+                        value=f"**{old_user['puntos_semana']}** → **{agregar_puntaje['puntos_semana']}** (+1)"
+                    )
 
                 await msg.channel.send(embed=embed)
 
 # Definición de comandos
 # Coamndos de bot
+
+# @bot.tree.command(name='bump_dummie')
+# async def bump_dummie(interaction: discord.Interaction):
+#     await interaction.response.send_message(embed=discord.Embed(description=bump_keyword))
 
 # Sincronizar
 @bot.tree.command(name='sync')
