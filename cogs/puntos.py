@@ -11,7 +11,7 @@ import logging
 from itertools import groupby
 
 # 4to bloque; modulos del proyecto
-from config import success_color, info_color, error_color
+from config import success_color, info_color, error_color, req_semana
 from json_operations import load_json, update_json
 
 logger  = logging.getLogger('discord')
@@ -58,7 +58,7 @@ class PuntosCog(commands.Cog):
 
             embed.add_field(name='Totales', value=f"𑁍 {select_usuario['puntos']}")
             embed.add_field(name='Pendientes', value=f"𑁍 {select_usuario['puntos_pendientes']}")
-            embed.add_field(name='Semana', value=f"𑁍 {select_usuario['puntos_semana']}/35")
+            embed.add_field(name='Semana', value=f"𑁍 {select_usuario['puntos_semana']}/{req_semana}")
             embed.set_author(
                 name=usuario.name if usuario else interaction.user.name,
                 icon_url=usuario.avatar.url if usuario else interaction.user.avatar.url
@@ -235,12 +235,12 @@ class PuntosCog(commands.Cog):
             usuarios = data['usuarios']
 
             for usuario in usuarios:
-                if usuario['puntos_semana'] < 35:
+                if usuario['puntos_semana'] < req_semana:
                     usuario.update({'puntos_semana': 0, 'strikes': usuario['strikes'] + 1})
-                elif usuario['puntos_semana'] >= 35:
+                elif usuario['puntos_semana'] >= req_semana:
                     usuario.update({
-                        'puntos': usuario['puntos'] + 35,
-                        'puntos_semana': usuario['puntos_semana'] - 35
+                        'puntos': usuario['puntos'] + req_semana,
+                        'puntos_semana': usuario['puntos_semana'] - req_semana
                     })
 
             update_json('usuarios', usuarios)
