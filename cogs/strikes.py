@@ -35,6 +35,7 @@ class StrikesCog(commands.Cog):
 
     @strikes.command(name='agregar')
     @app_commands.describe(usuario='Usuario a agregar strike')
+    @app_commands.checks.has_permissions(administrator=True)
     async def agregar(self, interaction: discord.Interaction, usuario: discord.User):
         data = load_json()
 

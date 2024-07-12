@@ -74,6 +74,7 @@ class PuntosCog(commands.Cog):
     @puntos.command(name='agregar')
     @app_commands.describe(miembro='Miembro a agregar puntaje')
     @app_commands.describe(cantidad='Cantidad de puntos')
+    @app_commands.checks.has_permissions(administrator=True)
     async def agregar(self, interaction: discord.Interaction, miembro: discord.Member, cantidad:int):
         data = load_json()
 
@@ -194,6 +195,7 @@ class PuntosCog(commands.Cog):
             await interaction.response.send_message('Sin movimientos pendientes')
 
     @puntos.command(name='sincronizar')
+    @app_commands.checks.has_permissions(administrator=True)
     async def sincronizar(self, interaction: discord.Interaction):
         data = load_json()
 
@@ -228,6 +230,7 @@ class PuntosCog(commands.Cog):
         app_commands.Choice(name='No', value=0),
         app_commands.Choice(name='Sí', value=1)
     ])
+    @app_commands.checks.has_permissions(administrator=True)
     async def finalizar_semana(self, interaction: discord.Interaction, seguro: int):
         if seguro:
             data = load_json().copy()
@@ -255,5 +258,5 @@ class PuntosCog(commands.Cog):
         else:
             await interaction.response.send_message('Operación cancelada', ephemeral=True)
 
-async def setup(client: commands.Bot) -> None:  
+async def setup(client: commands.Bot) -> None:
     await client.add_cog(PuntosCog(client))

@@ -167,12 +167,13 @@ async def on_message(msg):
 # Definición de comandos
 # Coamndos de bot
 
-# @bot.tree.command(name='bump_dummie')
-# async def bump_dummie(interaction: discord.Interaction):
-#     await interaction.response.send_message(embed=discord.Embed(description=bump_keyword))
+@bot.tree.command(name='bump_dummie')
+async def bump_dummie(interaction: discord.Interaction):
+    await interaction.response.send_message(embed=discord.Embed(description=bump_keyword))
 
 # Sincronizar
 @bot.tree.command(name='sync')
+@app_commands.checks.has_permissions(administrator=True)
 async def sync(interaction: discord.Interaction):
     synced = await bot.tree.sync()
 
@@ -180,6 +181,7 @@ async def sync(interaction: discord.Interaction):
 
 # Purgador (Restaurado)
 @bot.tree.command(name='purgar')
+@app_commands.checks.has_permissions(administrator=True)
 async def miembros(interaction: discord.Interaction):
     data = load_json()
 
@@ -227,6 +229,18 @@ async def reiniciar_bump(interaction: discord.Interaction):
             bump_cron.start()
 
     await interaction.response.send_message(embed=embed, ephemeral=bool(next_bump))
+
+# Definición de errores
+@bot.tree.error
+async def error_handle(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                color=error_color,
+                description='Sin permiso para ejecutar este comando. Mencioná a un administrador si necesitás ayuda.'
+            ),
+            ephemeral=True
+        )
 
 # INICIAR BOT:
 bot.run(key)

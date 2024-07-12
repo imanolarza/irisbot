@@ -88,6 +88,7 @@ class TemasCog(commands.Cog):
 
     @temas.command(name='canal', description='Setear canal')
     @app_commands.describe(canal='¿En qué canal debería ir el tema semanal?')
+    @app_commands.checks.has_permissions(administrator=True)
     async def canal(self, interaction: discord.Interaction, canal: discord.TextChannel = None):
         data = load_json()
 
@@ -105,6 +106,7 @@ class TemasCog(commands.Cog):
 
     @temas.command(name='hora', description='Setear hora')
     @app_commands.describe(valor='Hora deseada. Formato hh:mm UTC')
+    @app_commands.checks.has_permissions(administrator=True)
     async def hora(self, interaction: discord.Interaction, valor: str = ''):
         data = load_json()['execute_date']
 
@@ -142,7 +144,8 @@ class TemasCog(commands.Cog):
 
 
     @temas.command(name='desactivar', description='Desactivar tema semanal')
-    async def hora(self, interaction: discord.Interaction):
+    @app_commands.checks.has_permissions(administrator=True)
+    async def desactivar(self, interaction: discord.Interaction):
         update_json('execute_date', False)
 
         await interaction.response.send_message('¡Tema semanal desactivado!')
@@ -182,6 +185,7 @@ class TemasCog(commands.Cog):
 
     @temas.command(name='eliminar', description='Eliminar tema semanal')
     @app_commands.describe(posicion='Posición del tema')
+    @app_commands.checks.has_permissions(administrator=True)
     async def eliminar(self, interaction: discord.Interaction, posicion: int):
         data = load_json()['temas']
         new_data = data.copy()
@@ -199,6 +203,7 @@ class TemasCog(commands.Cog):
         app_commands.Choice(name='Sí', value='Si'),
         app_commands.Choice(name='No', value='No')
     ])
+    @app_commands.checks.has_permissions(administrator=True)
     async def forzar(self, interaction: discord.Integration, seguro: str):
         if seguro == 'Si':
             update_json('forced', True)
@@ -210,6 +215,7 @@ class TemasCog(commands.Cog):
 
     @temas.command(name='rol', description='¿Qué rol debería mencionar al ejecutar tema semanal?')
     @app_commands.describe(rol='Rol a mencionar')
+    @app_commands.checks.has_permissions(administrator=True)
     async def rol(self, interaction: discord.Integration, rol: discord.Role = None):
         data = load_json()['role_id']
 
