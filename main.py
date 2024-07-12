@@ -167,9 +167,9 @@ async def on_message(msg):
 # Definición de comandos
 # Coamndos de bot
 
-@bot.tree.command(name='bump_dummie')
-async def bump_dummie(interaction: discord.Interaction):
-    await interaction.response.send_message(embed=discord.Embed(description=bump_keyword))
+# @bot.tree.command(name='bump_dummie')
+# async def bump_dummie(interaction: discord.Interaction):
+#     await interaction.response.send_message(embed=discord.Embed(description=bump_keyword))
 
 # Sincronizar
 @bot.tree.command(name='sync')
