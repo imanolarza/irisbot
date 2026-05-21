@@ -32,7 +32,7 @@ logger = logging.getLogger('discord')
 # TODO: Volverlo a implementar
 
 # Evento al iniciar bot
-coglist = ['cogs.puntos', 'cogs.strikes', 'cogs.tema_semanal']
+coglist = []
 
 @bot.event
 async def setup_hook():
@@ -151,16 +151,16 @@ async def on_message(msg):
 
                 interaction_user = msg.interaction.user
 
-                agregar_puntaje = await bot.get_cog('PuntosCog').agregar_puntaje(data, interaction_user.id, 1)
+                # agregar_puntaje = await bot.get_cog('PuntosCog').agregar_puntaje(data, interaction_user.id, 1)
 
-                if agregar_puntaje:
-                    old_user = list(filter(lambda u: u['id'] == interaction_user.id, data['usuarios']))[0]
+                # if agregar_puntaje:
+                #     old_user = list(filter(lambda u: u['id'] == interaction_user.id, data['usuarios']))[0]
 
-                    embed.set_author(name=interaction_user.name, icon_url=interaction_user.avatar.url)
-                    embed.add_field(
-                        name='Puntaje modificado',
-                        value=f"**{old_user['puntos_semana']}** → **{agregar_puntaje['puntos_semana']}** (+1)"
-                    )
+                #     embed.set_author(name=interaction_user.name, icon_url=interaction_user.avatar.url)
+                #     embed.add_field(
+                #         name='Puntaje modificado',
+                #         value=f"**{old_user['puntos_semana']}** → **{agregar_puntaje['puntos_semana']}** (+1)"
+                #     )
 
                 await msg.channel.send(embed=embed)
 

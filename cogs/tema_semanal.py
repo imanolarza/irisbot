@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 
 # 3er bloque; otras librerías no nativas
-import wikiquote
+# import wikiquote
 
 # 4to bloque; modulos del proyecto
 from json_operations import load_json, update_json
@@ -20,90 +20,10 @@ class TemasCog(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
 
-    # Cron tema semanal (Recuperado)
-    @tasks.loop(minutes=15)
-    async def tema_diario_cron(self):
-        logger.info('Chequeo de tema semanal')
-
-        now = datetime.now().astimezone(tz=timezone.utc)
-        enviar = False
-        data = load_json()
-        channel = self.client.get_channel(data['channel_id'])
-        role_id = data['role_id']
-        execute_date = False
-
-        if data['execute_date']:
-            execute_date = datetime.fromtimestamp(data['execute_date']).astimezone(tz=timezone.utc)
-
-            if now >= execute_date:
-                enviar = True
-            else:
-                now_exe_date_diff = execute_date - now
-
-                self.tema_diario_cron.change_interval(seconds=now_exe_date_diff.seconds + 5)
-
-        else:
-            logger.info('Tema diario no apto para correr, Apagando...')
-            self.tema_diario_cron.cancel()
-            self.tema_diario_cron.stop()
-
-        if data['forced']:
-            update_json('forced', False)
-            enviar = True
-
-        if enviar:
-            if len(data['temas']):
-                logger.info('sent tema semanal')
-
-                if execute_date:
-                    execute_date = execute_date.replace(day=(now + timedelta(days=7)).day)
-
-                    update_json('execute_date', execute_date.timestamp())
-
-                    now_exe_date_diff = execute_date - now
-
-                    self.tema_diario_cron.change_interval(seconds=now_exe_date_diff.seconds + 5)
-
-                embed = discord.Embed(
-                    title='⚡ Tema de la semana',
-                    description=f'## "{data["temas"][0]["name"]}"\n' +
-                        f'➜ Puedes responder en <#{data["temas"][0]["channel_id"]}>'
-                )
-                embed.set_footer(text='¡Recuerda seguir normas de convivencia e invitar a tus amigos!')
-
-                try:
-                    quote = wikiquote.qotd(lang='es')
-
-                    embed.add_field(
-                        name='Frase de la semana',
-                        value=
-                            '> [' + {quote[0].replace('\n', ' ').replace('»',' ').replace('«',' ')} +
-                            f'](https://es.wikiquote.org/wiki/Portada)\n{quote[1]})'
-                    )
-
-                except Exception as e:
-                    logger.error(e)
-
-                await channel.send(embed=embed, content=f'<@&{role_id}>' if role_id else None)
-
-                used_tema = data['temas'][0]
-                used_tema['id'] = len(data['used_temas']) + 1
-
-                new_used_temas = data['used_temas'].copy()
-                new_used_temas.append(used_tema)
-
-                update_json('used_temas', new_used_temas)
-                data['temas'].pop(0)
-                update_json('temas', data['temas'])
-
-            else:
-                logger.info('Tema diario no apto para correr, Apagando...')
-                self.tema_diario_cron.cancel()
-                self.tema_diario_cron.stop()
-
     @commands.Cog.listener()
     async def on_ready(self):
-        self.tema_diario_cron.start()
+        logger.info("Tema Semanal")
+        # self.tema_diario_cron.start()
 
     temas = app_commands.Group(name='temas', description='Tema semanal')
 
