@@ -32,7 +32,7 @@ logger = logging.getLogger('discord')
 # TODO: Volverlo a implementar
 
 # Evento al iniciar bot
-coglist = []
+coglist = ["cogs.check_miembros"]
 
 @bot.event
 async def setup_hook():
@@ -41,7 +41,7 @@ async def setup_hook():
 
 @tasks.loop(hours=24)
 async def purgar_cron():
-    logger.info('INICIANDO: Proceso de miembros inactivos')
+    logger.info('INICIANDO PROCESO: Proceso de miembros inactivos')
     guild_id = await bot.fetch_guild(1146162590163140668)
     members = guild_id.fetch_members(limit=None)
     now = datetime.now().astimezone(tz=timezone.utc)
@@ -80,6 +80,37 @@ async def purgar_cron():
     update_json('last_inactive_members', datetime.now().astimezone(tz=timezone.utc).timestamp())
 
     logger.info('FINALIZADO: Proceso de miembros inactivos')
+
+@tasks.loop(hours=24)
+async def usuarios_sin_presentacion_cron():
+    logger.info('INICIANDO PROCESO: Miembros sin presentación')
+    guild_id = await bot.fetch_guild(1493969546086973491)
+    all_members = set()
+
+    async for member in guild_id.fetch_members(limit=None):
+        if not member.bot:
+            logger.info(member.name)
+            all_members.add(member)
+
+    now = datetime.now().astimezone(tz=timezone.utc)
+
+    channel_id = await bot.fetch_channel(1493969548091723871)
+
+    new_members = set()
+    verified_members = set()
+
+    for member in all_members:
+        if (now - member.joined_at).days >= 7:
+            new_members.add(member.id)
+
+    async for message in channel_id.history(limit=None):
+        verified_members.add(message.author.id)
+
+    logger.info(new_members - verified_members)
+
+    update_json('unverified_members', list(new_members - verified_members))
+
+    return list(new_members - verified_members)
 
 @tasks.loop(minutes=1)
 async def bump_cron():
@@ -121,6 +152,7 @@ async def on_ready():
     try:
         bump_cron.start()
         purgar_cron.start()
+        usuarios_sin_presentacion_cron.start()
     except Exception as e:
         # Si hay un error, lo imprimirá
         logger.error(e)
